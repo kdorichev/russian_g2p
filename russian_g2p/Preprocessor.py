@@ -1,11 +1,28 @@
-from re import sub
+#!/usr/bin/python3
+"""Preprocessor class.
 
+:class: Preprocessor is used to preprocess text.
+
+  Typical usage example:
+  ...
+
+"""
+
+from re import sub
 from rnnmorph.predictor import RNNMorphPredictor
 
 
 class Preprocessor():
+    """[summary]
+    """
 
     def __init__(self, batch_size=1):
+        """[summary]
+
+        Args:
+            batch_size (int, optional): [description]. Defaults to 1.
+        """
+
         self.batch_size = batch_size
         self.predictor = RNNMorphPredictor(language="ru")
 
@@ -25,7 +42,19 @@ class Preprocessor():
         result.predictor = self.predictor
         return result
 
-    def gettags(self, texts):
+    def gettags(self, texts: list) -> list:
+        """[summary]
+
+        Args:
+            texts (list): [description]
+
+        Raises:
+            ValueError: [description]
+
+        Returns:
+            list: words and tags
+        """
+
         if not isinstance(texts, list):
             raise ValueError(f'Expected `{type([1, 2])}`, but got `{type(texts)}`.')
         if len(texts) == 0:
@@ -44,7 +73,8 @@ class Preprocessor():
             else:
                 all_phonetic_phrases.append([])
         if len(all_phrases_for_rnnmorph) > 0:
-            all_forms = self.predictor.predict_sentences(all_phrases_for_rnnmorph, batch_size=self.batch_size)
+            all_forms = self.predictor.predict_sentences(all_phrases_for_rnnmorph, \
+                                                         batch_size=self.batch_size)
         else:
             all_forms = []
         all_words_and_tags = []
@@ -68,14 +98,41 @@ class Preprocessor():
             all_words_and_tags.append(words_and_tags)
         return all_words_and_tags
 
-    def preprocessing(self, texts):
+    def __call__(self, texts: str):
+        """Call the instance like function. Use in pipelines, too.
 
-        def prepare(src):
-            dst = sub('[\.\,\?\!\(\);:]+', ' <sil>', src.lower())
-            dst = sub(' [–-] |\n', ' <sil> ', dst)
-            dst = sub('\s{2,}', ' ', dst)
-            dst = sub('^\s|(?<!\w)[\\\/@#~¬`£€\$%\^\&\*–_=+\'\"\|«»–-]+', '', dst)
-            return dst.strip().split(' ')
+        Args:
+            texts (str): [description]
 
-        words_and_tags = self.gettags([prepare(cur) for cur in texts])
-        return words_and_tags
+        Returns:
+            [type]: [description]
+        """
+        return self.preprocessing(texts)
+
+    def preprocessing(self, texts: str):
+        """[summary]
+
+        Args:
+            texts ([type]): [description]
+
+        Returns:
+            list: A list of processed words and tags.
+        """
+
+        def prepare(text: str) -> str:
+            """Replace punctuation marks with <sil> tag; remove special symbols.
+
+            Args:
+                text (str): Text to prepare.
+
+            Returns:
+                str: Processed text.
+            """
+
+            text = sub(r'[\.\,\?\!\(\);:]+', ' <sil>', text.lower())
+            text = sub(r' [–-] |\n', ' <sil> ', text)
+            text = sub(r'\s{2,}', ' ', text)
+            text = sub(r'^\s|(?<!\w)[\\\/@#~¬`£€\$%\^\&\*–_=+\'\"\|«»–-]+', '', text)
+            return text.strip().split(' ')
+
+        return self.gettags([prepare(cur) for cur in texts])
