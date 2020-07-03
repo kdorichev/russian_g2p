@@ -43,16 +43,30 @@ class Preprocessor():
         return result
 
     def gettags(self, texts: list) -> list:
-        """[summary]
+        """Get morpho tags for the `texts`
 
         Args:
-            texts (list): [description]
+            texts (list): List of lists
 
         Raises:
             ValueError: [description]
 
         Returns:
-            list: words and tags
+            list: list of lists -- words and motpho tags
+            
+        Example:            
+            PreProcess.gettags([['я купил самолёт и ракеты'], ['ух ты']])
+            [[['<sil>', 'SIL _'],
+              ['я', 'PRON Case=Nom|Number=Sing|Person=1'],
+              ['купил', 'VERB Gender=Masc|Mood=Ind|Number=Sing|Tense=Past|VerbForm=Fin|Voice=Act'],
+              ['самолёт', 'NOUN Case=Acc|Gender=Masc|Number=Sing'],
+              ['и', 'CONJ _'],
+              ['ракеты', 'NOUN Case=Acc|Gender=Fem|Number=Plur'],
+              ['<sil>', 'SIL _']],
+             [['<sil>', 'SIL _'],
+              ['ух', 'INTJ _'],
+              ['ты', 'PRON Case=Nom|Number=Sing|Person=2'],
+              ['<sil>', 'SIL _']]]
         """
 
         if not isinstance(texts, list):
@@ -79,6 +93,7 @@ class Preprocessor():
             all_forms = []
         all_words_and_tags = []
         phrase_ind = 0
+        
         for cur in all_phonetic_phrases:
             words_and_tags = [['<sil>', 'SIL _']]
             if len(cur) > 0:
@@ -99,35 +114,21 @@ class Preprocessor():
         return all_words_and_tags
 
     def __call__(self, texts: str):
-        """Call the instance like function. Use in pipelines, too.
-
-        Args:
-            texts (str): [description]
-
-        Returns:
-            [type]: [description]
-        """
-        return self.preprocessing(texts)
+        """Call the instance like function. Use in pipelines, too."""
+        return self.preprocessing(texts)[0]
 
     def preprocessing(self, texts: str):
         """[summary]
 
         Args:
-            texts ([type]): [description]
+            texts (str): Text to preprocess.
 
         Returns:
             list: A list of processed words and tags.
         """
 
         def prepare(text: str) -> str:
-            """Replace punctuation marks with <sil> tag; remove special symbols.
-
-            Args:
-                text (str): Text to prepare.
-
-            Returns:
-                str: Processed text.
-            """
+            """Replace punctuation marks with <sil> tag; remove special symbols."""
 
             text = sub(r'[\.\,\?\!\(\);:]+', ' <sil>', text.lower())
             text = sub(r' [–-] |\n', ' <sil> ', text)

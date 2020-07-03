@@ -1,5 +1,17 @@
+#!/usr/bin/python3
+"""RulesForGraphemes class.
+
+:class: RulesForGraphemes base for :class: Grapheme2Phoneme.
+
+"""
+
 class RulesForGraphemes:
     def __init__(self, users_mode: str='Modern'):
+        """[summary]
+
+        Args:
+            users_mode (str, optional): 'Modern'|'Classic'. Defaults to 'Modern'.
+        """
         if users_mode == 'Classic':
             from russian_g2p.modes.Classic import ClassicMode as UsersMode
         else:

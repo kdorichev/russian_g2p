@@ -213,15 +213,20 @@ class Accentor:
                             # print(variant.text_content())
                             # t = 0
                             # FIXME variable `t` is unused
-                            if (variant.text_content().find('indicative') != -1) and (morphotag.find('Mood=Ind') != -1):
-                                if ((variant.text_content().find('future') != -1) or (variant.text_content().find('present') != -1)) and (morphotag.find('Tense=Notpast') != -1):
+                            if (variant.text_content().find('indicative') != -1) and \
+                                (morphotag.find('Mood=Ind') != -1):
+                                if ((variant.text_content().find('future') != -1) or \
+                                    (variant.text_content().find('present') != -1)) and \
+                                    (morphotag.find('Tense=Notpast') != -1):
                                     # print('I should be here')
                                     results.add(result)
                                     # print(1, results)
-                                elif (variant.text_content().find('past') != -1) and (morphotag.find('Tense=Past') != -1):
+                                elif (variant.text_content().find('past') != -1) and \
+                                    (morphotag.find('Tense=Past') != -1):
                                     results.add(result)
                                     # print(2, results)
-                            elif (variant.text_content().find('imperative') != -1) and (morphotag.find('Mood=Imp') != -1):
+                            elif (variant.text_content().find('imperative') != -1) and \
+                                (morphotag.find('Mood=Imp') != -1):
                                 results.add(result)
                     else:
                         results.add(result)

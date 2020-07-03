@@ -1,3 +1,13 @@
+#!/usr/bin/python3
+"""Grapheme2Phoneme class.
+
+:class: Grapheme2Phoneme is used to transcribe text.
+
+  Typical usage example:
+  ...
+
+"""
+
 import codecs
 import os
 import re
@@ -7,7 +17,20 @@ from russian_g2p.RulesForGraphemes import RulesForGraphemes
 
 
 class Grapheme2Phoneme(RulesForGraphemes):
+    """[summary]
+
+    Args:
+        RulesForGraphemes ([type]): [description]
+    """
+
     def __init__(self, users_mode='Modern', exception_for_nonaccented=False):
+        """[summary]
+
+        Args:
+            users_mode (str, optional): 'Modern'|'Classic'. Defaults to 'Modern'.
+            exception_for_nonaccented (bool, optional): [description]. Defaults to False.
+        """
+
         RulesForGraphemes.__init__(self, users_mode)
         self.exception_for_nonaccented = exception_for_nonaccented
 
@@ -15,15 +38,18 @@ class Grapheme2Phoneme(RulesForGraphemes):
 
         self.__silence_name = 'sil'
 
-        #self.__function_words_1 = {'без', 'безо', 'близ', 'в', 'во', 'вне', 'для', 'до', 'за', 'из', 'изо', 'к', 'ко',
-        #                           'меж', 'на', 'над', 'о', 'об', 'обо', 'от', 'ото', 'по', 'под', 'подо', 'пред',
-        #                           'предо', 'перед', 'при', 'про', 'с', 'со', 'у', 'чрез', 'через', 'не', 'ни', 'из-за',
+        #self.__function_words_1 = {'без', 'безо', 'близ', 'в', 'во', 'вне', 
+        #                           'для', 'до', 'за', 'из', 'изо', 'к', 'ко',
+        #                           'меж', 'на', 'над', 'о', 'об', 'обо', 'от', 
+        #                           'ото', 'по', 'под', 'подо', 'пред',
+        #                           'предо', 'перед', 'при', 'про', 'с', 'со', 
+        #                           'у', 'чрез', 'через', 'не', 'ни', 'из-за',
         #                           'из-подо', 'из-под', 'а-ля', 'по-над', 'по-за'}
 
-        self.__function_words_1 = {'без', 'близ', 'в', 'из', 'меж', 'над', 'об', 'под', 'пред', 'перед', 'чрез', 'через',
-                                   'из-под', 'по-над'}
+        self.__function_words_1 = \
+            set('без близ в из меж над об под пред перед чрез через из-под по-над'.split())
 
-        self.__function_words_2 = {'бы', 'б', 'де', 'ли', 'же', '-то', '-ка', '-либо', '-нибудь', '-таки'}
+        self.__function_words_2 = set('бы б де ли же -то -ка -либо -нибудь -таки'.split())
 
         self.__exclusions_dictionary = None
         exclusions_dictionary_name = os.path.join(os.path.dirname(__file__), 'data', 'Phonetic_Exclusions.txt')
@@ -34,10 +60,12 @@ class Grapheme2Phoneme(RulesForGraphemes):
 
     @property
     def russian_letters(self) -> list:
+        """Return sorted list of Russian alphabet."""
         return sorted(list(self.mode.all_russian_letters))
 
     @property
     def russian_phonemes(self) -> list:
+        """Return sorted list of Russian phonemes."""
         return sorted(list(self.mode.russian_phonemes_set))
 
     @property
@@ -66,23 +94,37 @@ class Grapheme2Phoneme(RulesForGraphemes):
                 cur_line_index += 1
         return words_and_words
 
-    def check_word(self, checked_word: str):
-        assert len(checked_word) > 0, 'Checked word is empty string!'
-        assert all([c in (self.mode.all_russian_letters | {'+', '-'}) for c in checked_word.lower()]), \
-            f'`{checked_word}`: this word contains inadmissible characters!'
-        assert len(list(filter(lambda c: c in self.mode.all_russian_letters, checked_word.lower()))) > 0, \
-            f'`{checked_word}`: this word is incorrect!'
+    def check_word(self, word: str):
+        """Check the `word` is not empty and contains proper characters."""
 
-    def check_phrase(self, checked_phrase: str):
-        assert len(checked_phrase) > 0, 'Checked phrase is empty string!'
+        assert len(word) > 0, 'Checked word is empty string!'
+        assert all([c in (self.mode.all_russian_letters | {'+', '-'}) for c in word.lower()]), \
+                f'`{word}`: this word contains inadmissible characters!'
+        assert len(list(filter(lambda c: c in self.mode.all_russian_letters, word.lower()))) > 0, \
+                f'`{word}`: this word is incorrect!'
+
+    def check_phrase(self, phrase: str):
+        """Check the `phrase` is not empty and contains proper characters."""
+
+        assert len(phrase) > 0, f'Checked phrase is empty!'
         assert all([c in (self.mode.all_russian_letters | {' ', '+', '-'} | {'s', 'i', 'l'})
-                    for c in checked_phrase.lower()]), \
-            f'`{checked_phrase}`: this phrase contains inadmissible characters!'
-        # for cur_word in self.__re_for_phrase_split.split(checked_phrase.lower()):
-        # assert (len(list(filter(lambda c: c in self.all_russian_letters, cur_word))) > 0) \
-        #      or (cur_word.lower() == 'sil'), f'`{checked_phrase}`: this phrase is incorrect!'
+                    for c in phrase.lower()]), \
+                f'`{phrase}`: phrase contains inadmissible characters!'
 
     def word_to_phonemes(self, source_word: str, next_phoneme: str = 'sil') -> list:
+        """Convert 
+
+        Args:
+            source_word (str): [description]
+            next_phoneme (str, optional): [description]. Defaults to 'sil'.
+
+        Raises:
+            ValueError: [description]
+
+        Returns:
+            list: of phonemes
+        """
+
         self.check_word(source_word)
         error_message = f'`{source_word}`: this word is incorrect!'
         prepared_word = source_word.lower()
@@ -108,7 +150,7 @@ class Grapheme2Phoneme(RulesForGraphemes):
                     else:
                         prepared_word_parts.append(cur_part)
                 return self.phrase_to_phonemes(' '.join(prepared_word_parts))
-            prepared_word = self.__remove_character(prepared_word, '-')
+            prepared_word = self.__rm_char(prepared_word, '-')
         letters_list = self.__word_to_letters_list(self.__prepare_word(prepared_word))
         n = len(letters_list)
         assert n > 0, error_message
@@ -131,7 +173,17 @@ class Grapheme2Phoneme(RulesForGraphemes):
         return self.__remove_long_phonemes(self.__remove_repeats_from_transcription(transcription))
 
     def phrase_to_phonemes(self, source_phrase: str) -> list:
+        """[summary]
+
+        Args:
+            source_phrase (str): [description]
+
+        Returns:
+            list: [description]
+        """
+
         error_message = f'`{source_phrase}`: this phrase is incorrect!'
+        # FIXME `error_message` is not used
         source_phrase = source_phrase.lower().replace('-', ' ')
         source_phrase = re.sub('[^a-zйцукенгшщзхъфывапролджэячсмитьбюё+ ]', '', source_phrase)
         self.check_phrase(source_phrase)
@@ -174,14 +226,16 @@ class Grapheme2Phoneme(RulesForGraphemes):
         final_transcription = self.__remove_long_phonemes(final_transcription)
         return final_transcription
 
-    def in_function_words_1(self, source_word: str) -> bool:
-        return self.__remove_character(source_word, '+').lower() in self.__function_words_1
+    def in_function_words_1(self, word: str) -> bool:
+        return self.__rm_char(word, '+').lower() in self.__function_words_1
 
-    def in_function_words_2(self, source_word: str) -> bool:
-        return self.__remove_character(source_word, '+').lower() in self.__function_words_2
+    def in_function_words_2(self, word: str) -> bool:
+        return self.__rm_char(word, '+').lower() in self.__function_words_2
 
-    def __remove_character(self, source_word: str, removed_char: str) -> str:
-        return ''.join(list(filter(lambda a: a != removed_char, source_word.lower())))
+    def __rm_char(self, word: str, char: str) -> str:
+        """Remove `char` from `word`."""
+        return ''.join(list(filter(lambda a: a != char, word.lower())))
+        # TODO Refactor: return re.sub(f'{char}','', word)
 
     def __prepare_word(self, cur_word: str) -> str:
         prepared_word = cur_word.lower().strip()
@@ -219,7 +273,8 @@ class Grapheme2Phoneme(RulesForGraphemes):
         del vocal_letters
         return letters_list
 
-    def __remove_repeats_from_transcription(self, source_transcription: list, full: bool=True) -> list:
+    def __remove_repeats_from_transcription(self, source_transcription: list, 
+                                            full: bool = True) -> list:
         def equal(s_l: str, s_r: str) -> bool:
             s_l_ = re.sub(r'[l]', '', s_l)
             s_r_ = re.sub(r'[l]', '', s_r)
@@ -252,6 +307,16 @@ class Grapheme2Phoneme(RulesForGraphemes):
                          }
 
         def conjugate(s_l: str, s_r: str) -> str:
+            """[summary]
+
+            Args:
+                s_l (str): [description]
+                s_r (str): [description]
+
+            Returns:
+                str: [description]
+            """
+
             s_l_ = re.sub(r'[l]', '', s_l)
             s_r_ = re.sub(r'[l]', '', s_r)
             ans = phomene_pairs[(s_l_, s_r_)] if (s_l_, s_r_) in phomene_pairs else ''
@@ -304,4 +369,3 @@ class Grapheme2Phoneme(RulesForGraphemes):
             if new_phoneme != new_transcription[-1]:
                 new_transcription.append(new_phoneme)
         return list(filter(lambda it: len(it) > 0, new_transcription))
-
