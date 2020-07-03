@@ -1,3 +1,18 @@
+#!/usr/bin/python3
+"""Accentor class.
+
+:class: Accentor is used to determine proper accent of the words or phrases
+  amd mark it with `+` character after accented vowel.
+
+  Typical usage example:
+
+  ```
+  acc = Accentor()
+  acc([['самолёт], ['пилюля']])
+  >>> [['самолё+т', 'пилю+ля']]
+  ```
+"""
+
 import codecs
 import copy
 import json
@@ -6,14 +21,25 @@ import re
 import warnings
 import urllib.request
 import urllib.parse
-import lxml.html
 import itertools
-import dawg
 import logging
+import dawg
+import lxml.html
 
 
 class Accentor:
+    """Define and add accents to words or phrases."""
+
     def __init__(self, mode='one', debug='no', exception_for_unknown=False, use_wiki=True):
+        """Create an object for adding accents.
+
+        Args:
+            mode (str, optional): [description]. Defaults to 'one'.
+            debug (str, optional): Print extra info useful for debugging. Defaults to 'no'.
+            exception_for_unknown (bool, optional): Raise an exception in case of unknown word.
+                Defaults to False.
+            use_wiki (bool, optional): Look for a word in Wiktionary. Defaults to True.
+        """
         if debug == 'no':
             logging.basicConfig()
         else:
@@ -21,22 +47,23 @@ class Accentor:
         self.logger = logging.getLogger()
         self.logger.debug('Setting up the Accentor...')
         self.mode = mode
-        self.__all_russian_letters = {'а', 'б', 'в', 'г', 'д', 'е', 'ё', 'ж', 'з', 'и', 'й', 'к', 'л', 'м', 'н', 'о',
-                                      'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 'ч', 'ш', 'щ', 'ъ', 'ы', 'ь', 'э', 'ю',
-                                      'я'}
+        self.__all_russian_letters = {'а', 'б', 'в', 'г', 'д', 'е', 'ё', 'ж', 'з', 'и', 'й', 'к', 
+                                      'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 
+                                      'ч', 'ш', 'щ', 'ъ', 'ы', 'ь', 'э', 'ю', 'я'}
         self.__russian_vowels = {'а', 'о', 'у', 'э', 'ы', 'и', 'я', 'ё', 'ю', 'е'}
         self.exception_for_unknown = exception_for_unknown
         self.use_wiki = use_wiki
-        self.__homonyms = None
-        self.__simple_words_dawg = None
+        self.__homonyms, self.__new_homonyms = {}, {}
+        self.__simple_words_dawg = None  # maps unicode key -> int index of accented vowel
         self.__function_words = None
-        self.__new_homonyms = {}
         self.__new_simple_words = set()
-        self.__bad_words = []
+        self.__bad_words = []  # Too many accent variants, or unknown accent
         self.__re_for_morphosplit = re.compile(r'[\,\s\|]+', re.U)
         self.__re_for_morphotag = re.compile(r'^(\w+|\w+[\-\=]\w+)$', re.U)
+
         assert mode in ('one', 'many'), 'Set either "one" or "many" variant mode!'
         assert debug in ('yes', 'no'), 'Set either "yes" or "no" variant mode!'
+
         homograph_dictionary_name = os.path.join(os.path.dirname(__file__), 'data', 'homographs.json')
         assert os.path.isfile(homograph_dictionary_name), f'File `{homograph_dictionary_name}` does not exist!'
         simple_words_dawg_name = os.path.join(os.path.dirname(__file__), 'data', 'simple_words.dawg')
@@ -44,30 +71,37 @@ class Accentor:
         function_words_name = os.path.join(os.path.dirname(__file__), 'data', 'Function_words.json')
         assert os.path.isfile(function_words_name), f'File `{function_words_name}` does not exist!'
         data = None
+
         try:
             d = dawg.IntDAWG()
             self.__simple_words_dawg = d.load(simple_words_dawg_name)
-            ###
+
             with codecs.open(homograph_dictionary_name, mode='r', encoding='utf-8', errors='ignore') as fp:
                 data = json.load(fp)
             error_message_homographs = f'File `{homograph_dictionary_name}` contains incorrect data!'
             assert isinstance(data, dict), error_message_homographs
-            self.__homonyms = dict()
+
             for cur_wordform in data:
                 assert self.check_source_wordform(cur_wordform), \
                     error_message_homographs + f' Word `{cur_wordform}` is inadmissible!'
-                assert (cur_wordform not in self.__homonyms) and (cur_wordform.lower() not in self.__simple_words_dawg), \
-                    error_message_homographs + f' Word `{cur_wordform}` is repeated!'
+                assert (cur_wordform not in self.__homonyms) and \
+                       (cur_wordform.lower() not in self.__simple_words_dawg), \
+                       error_message_homographs + f' Word `{cur_wordform}` is repeated!'
                 assert isinstance(data[cur_wordform], dict), \
-                    error_message_homographs + f' Word `{cur_wordform}` has incorrect description of accents!'
+                    error_message_homographs + \
+                    f' Word `{cur_wordform}` has incorrect description of accents!'
+
                 for cur_key in data[cur_wordform]:
                     assert self.check_morphotag(cur_key), \
-                        error_message_homographs + f' Word `{cur_wordform}` has incorrect description of accents!'
+                        error_message_homographs + \
+                        f' Word `{cur_wordform}` has incorrect description of accents!'
                     assert self.check_accented_wordform(data[cur_wordform][cur_key]), \
-                        error_message_homographs + f' Word `{cur_wordform}` has incorrect description of accents!'
-                values = [data[cur_wordform][it] for it in data[cur_wordform]]
+                        error_message_homographs + \
+                        f' Word `{cur_wordform}` has incorrect description of accents!'
+                # values = [data[cur_wordform][it] for it in data[cur_wordform]]
+                # FIXME variable `values` is unused
                 self.__homonyms[cur_wordform] = copy.deepcopy(data[cur_wordform])
-            ###
+
             self.__function_words = None
             with codecs.open(function_words_name, mode='r', encoding='utf-8', errors='ignore') as fp:
                 function_words = json.load(fp)
@@ -80,6 +114,8 @@ class Accentor:
                 del data
 
     def __del__(self):
+        """Clean up when destroyed."""
+
         if self.__homonyms is not None:
             del self.__homonyms
         if self.__simple_words_dawg is not None:
@@ -93,42 +129,51 @@ class Accentor:
         del self.__bad_words
         del self.__function_words
 
-    def get_correct_omograph_wiki(self, root_text, cur_word, morphotag='X'):
-        '''
-        Разбор омографии.
-        Использование морфологической информации о 
+    def get_correct_omograph_wiki(self, root_text, cur_word, morphotag='X') -> list:
+        """Разбор омографии. Использование морфологической информации о
         слове для их разграничения.
-        '''
+
+        Args:
+            root_text ([type]): [description]
+            cur_word ([type]): [description]
+            morphotag (str, optional): [description]. Defaults to 'X'.
+
+        Returns:
+            list: best_results
+        """
+
         langs = root_text.split('<hr />')
-        #print('hello?')
+        # print('hello?')
         root = None
         for lang in langs:
-            #print(lang)
+            # print(lang)
             head_pos = lang.find('<h2><span class="mw-headline" id="Russian">Russian</span>')
             if head_pos != -1:
                 root = lxml.html.document_fromstring(lang[head_pos:])
-        if root == None:
-            #print(':^(')
+        if root is None:
+            # print(':^(')
             return []
         good_headers = []
         shallow_vars = set()
         results = set()
         for header in root.findall('.//*[@class="mw-headline"]'):
-            #print(cur_word, morphotag)
-            if header.text_content() in ['Noun', 'Verb', 'Adjective', 'Adverb', 'Conjunction', 'Determiner', 'Interjection',
-    'Morpheme', 'Numeral', 'Particle', 'Predicative', 'Preposition', 'Pronoun']:
+            # print(cur_word, morphotag)
+            if header.text_content() in \
+                ['Noun', 'Verb', 'Adjective', 'Adverb', 'Conjunction',
+                 'Determiner', 'Interjection', 'Morpheme', 'Numeral',
+                 'Particle', 'Predicative', 'Preposition', 'Pronoun']:
                 good_headers.append(header.text_content())
                 acc_word = header.getparent().getnext()
                 while acc_word.tag != 'p':
                     acc_word = acc_word.getnext()
-                #print(acc_word)
+                # print(acc_word)
                 result = []
                 hyphen = 0
                 for part in acc_word.find_class('Cyrl headword'):
                     result += [part.text_content()]
                     if part.text_content().find('-') != -1:
                         hyphen = 1
-                #print(result)
+                # print(result)
                 if (hyphen == 1) or (len(result) == 1):
                     result = ''.join(result)
                 else:
@@ -136,21 +181,22 @@ class Accentor:
                 if result.replace('ё', 'е́').find('') != -1:
                     shallow_vars.add(result)
                 if header.text_content()[0] == morphotag[0]:
-                    #print('The tags are equal')
+                    # print('The tags are equal')
                     if header.text_content()[0] == 'N':
                         gramm_info = acc_word.getnext()
                         if gramm_info.text_content().find('of') != -1:
                             for variant in gramm_info.find_class('form-of-definition'):
                                 info = variant.findall('a')
-                                #print(variant.text_content())
+                                # print(variant.text_content())
                                 try:
                                     if info[0].text_content()[0] == 'p':
                                         case = 'l'
                                     else:
                                         case = info[0].text_content()[0]
-                                    #print(case)
-                                    number = info[1].text_content()[0]
-                                    #print(number + case, morphotag)
+                                    # print(case)
+                                    # number = info[1].text_content()[0]
+                                    # FIXME variable `number` is unused
+                                    # print(number + case, morphotag)
                                     if case == morphotag[morphotag.find('Case=') + 5].lower():
                                         results.add(result)
                                 except IndexError:
@@ -162,18 +208,19 @@ class Accentor:
                         gramm_info = acc_word.getnext()
                         if morphotag.find('Mood=Inf') != -1:
                             results.add(result)
-                            #print('Wut',morphotag, results)
+                            # print('Wut',morphotag, results)
                         for variant in gramm_info.find_class('form-of-definition'):
-                            #print(variant.text_content())
-                            t = 0
-                            if (variant.text_content().find('indicative') != -1) and (morphotag.find('Mood=Ind') != -1):                          
+                            # print(variant.text_content())
+                            # t = 0
+                            # FIXME variable `t` is unused
+                            if (variant.text_content().find('indicative') != -1) and (morphotag.find('Mood=Ind') != -1):
                                 if ((variant.text_content().find('future') != -1) or (variant.text_content().find('present') != -1)) and (morphotag.find('Tense=Notpast') != -1):
-                                    #print('I should be here')
+                                    # print('I should be here')
                                     results.add(result)
-                                    #print(1, results)
+                                    # print(1, results)
                                 elif (variant.text_content().find('past') != -1) and (morphotag.find('Tense=Past') != -1):
                                     results.add(result)
-                                    #print(2, results)
+                                    # print(2, results)
                             elif (variant.text_content().find('imperative') != -1) and (morphotag.find('Mood=Imp') != -1):
                                 results.add(result)
                     else:
@@ -190,35 +237,45 @@ class Accentor:
                 for part in acc_word.find_class('Cyrl headword'):
                     result += part.text_content()
                 results.add(result)
-        #print(shallow_vars)
+        # print(shallow_vars)
         if len(list(shallow_vars)) == 1:
             if list(shallow_vars)[0].replace('ё', 'е+').replace('', '') == cur_word:
                 return [list(shallow_vars)[0].replace('ё', 'ё+').replace('', '+').replace('', '+')]
-        #print(results)
+        # print(results)
         if len(list(results)) != 1:
             return []
         best_results = [variant.replace('', '+') for variant in results]
         return list(best_results)
 
-    def get_simple_form_wiki(self, root_text, form):
-        '''
-        Непосредственное нахождение релевантной формы
+    def get_simple_form_wiki(self, root_text, form) -> list:
+        """Непосредственное нахождение релевантной формы
         и ударение без морфологической информации.
-        '''
+
+        Args:
+            root_text ([type]): [description]
+            form ([type]): [description]
+
+        Returns:
+            list: [description]
+        """
+
         root = lxml.html.document_fromstring(root_text)
         rel_forms = set()
+
         for header in root.findall('.//*[@class="Cyrl headword"][@lang="ru"]'):
             header_text = header.text_content().replace('ё', 'е́')
             header_text_best = header.text_content().replace('ё', 'ё+').replace('', '+')
             if header_text.replace('', '') == form:
                 if header_text.find('') != -1:
                     rel_forms.add(header_text_best)
+
         for mention in root.findall('.//i[@class="Cyrl mention"][@lang="ru"]'):
             mention_text = mention.text_content().replace('ё', 'е́')
             mention_text_best = mention.text_content().replace('ё', 'ё+').replace('', '+')
             if mention_text.replace('', '') == form:
                 if mention_text.replace('ё', 'е́').find('') != -1:
                     rel_forms.add(mention_text_best)
+
         for mention in root.findall('.//b[@class="Cyrl"][@lang="ru"]'):
             mention_text = mention.text_content().replace('ё', 'е́')
             mention_text_best = mention.text_content().replace('ё', 'ё+').replace('', '+')
@@ -231,11 +288,13 @@ class Accentor:
                         rel_forms.add(mention_text_best[mention_text.replace('', '').find(form):])
                 elif re.sub(r'[\(\)́]', '', mention_text) == form:
                     rel_forms.add(re.sub(r'[\(\)]', '', mention_text_best))
+
         for target in root.xpath('.//span[@class="Cyrl"][@lang="ru"]'):
             one_form = target.text_content()
             if one_form.replace('ё', 'е́').replace('', '') == form:
                 if one_form.replace('ё', 'е́').find('') != -1:
                     rel_forms.add(one_form.replace('ё', 'ё́').replace('', '+'))
+
         results = list(rel_forms)
         if len(results) == 2:
             if results[0].replace('ё', 'е') == results[1].replace('ё', 'е'):
@@ -245,12 +304,24 @@ class Accentor:
                         rel_forms.add(var)
         return list(rel_forms)
 
-    def load_wiki_page(self, cur_form):
+    def load_wiki_page(self, cur_form: str) -> str:
+        """Return an html Wiktionary page for the `cur_form`, if found or None.
+
+        Args:
+            cur_form (str): A word to search the page for.
+
+        Raises:
+            ValueError: [description]
+
+        Returns:
+            str: HTML page, if found, else None
+        """
+
         if not self.use_wiki:
             if self.exception_for_unknown:
                 raise ValueError(f'Word `{cur_form}` is unknown!')
-            return
-        query = urllib.parse.urlencode({ 'title' : cur_form })
+            return None
+        query = urllib.parse.urlencode({'title': cur_form})
         try:
             http_exception_type = urllib.error.HTTPError
         except:
@@ -260,9 +331,40 @@ class Accentor:
                 root_text = f.read().decode('utf-8')
                 return root_text
         except http_exception_type:
-            return
+            return None
+
+    def __call__(self, source_phrase_and_morphotags: list) -> list:
+        """Call the instance like function. Use in pipelines, too.
+
+        Args:
+            source_phrase_and_morphotags list of lists: words to add accents for
+            Example: [["word1","morphotag1"], ["word2","morphotag2"]] 
+                or  [["word1"], ["word2"]]
+                acc = Accentor()
+                acc([['самолёт], ['пилюля']])
+
+        Returns:
+            list of list: words with accents marked by `+`, if determined
+            Example: [['самолё+т', 'пилю+ля']]
+        """
+
+        return self.do_accents(source_phrase_and_morphotags)
 
     def do_accents(self, source_phrase_and_morphotags: list) -> list:
+        """[summary]
+
+        Args:
+            source_phrase_and_morphotags list of lists: words to add accents for
+            Example: [["word1","morphotag1"], ["word2","morphotag2"]] 
+                 or  [["word1"], ["word2"]]
+
+        Raises:
+            ValueError: [description]
+
+        Returns:
+            list of list: [description]
+        """
+
         self.logger.debug('Checking the source phrase...')
         error_message = f'`{source_phrase_and_morphotags}`: the phrase should be of a "list of lists" format!\nExample: [["word1","morphotag1"], ["word2","morphotag2"]] or [["word1"], ["word2"]]'
         assert isinstance(source_phrase_and_morphotags, list), error_message
@@ -270,22 +372,29 @@ class Accentor:
             assert isinstance(source_phrase_and_morphotags[0], list), error_message
         except IndexError:
             assert len(source_phrase_and_morphotags) > 0, 'Source phrase is empty!'
+
         try:
             source_phrase, morphotags_of_phrase = list(zip(*source_phrase_and_morphotags))
         except (ValueError, TypeError):
             source_phrase = list(zip(*source_phrase_and_morphotags))[0]
             morphotags_of_phrase = None
+
         for pair in source_phrase_and_morphotags:
             assert len(pair) == len(source_phrase_and_morphotags[0]), \
                 f"`{' '.join(source_phrase)}`: morphotags do not correspond to words!"
+
         prepared_phrase = []
+
         for cur_word in source_phrase:
             assert len(cur_word.strip()) > 0, f'`{source_phrase}`: this phrase is wrong!'
             prepared_phrase.append(cur_word.strip().lower())
+
         if morphotags_of_phrase is not None:
             assert len(prepared_phrase) == len(morphotags_of_phrase), \
                 f"`{' '.join(source_phrase)}`: morphotags do not correspond to words!"
+
         assert len(prepared_phrase) > 0, 'Source phrase is empty!'
+
         try:
             res = self.__do_accents(prepared_phrase, morphotags_of_phrase)
         except Exception as e:
@@ -306,10 +415,19 @@ class Accentor:
         return res
 
     def check_source_wordform(self, checked: str) -> bool:
+        """[summary]
+
+        Args:
+            checked (str): [description]
+
+        Returns:
+            bool: [description]
+        """
+
         if len(checked.strip()) == 0:
             return False
         res = len(self.__all_russian_letters | {'-'}) \
-              == len((self.__all_russian_letters | {'-'}) | set(checked.lower()))
+            == len((self.__all_russian_letters | {'-'}) | set(checked.lower()))
         if not res:
             return False
         if '-' not in checked:
@@ -321,10 +439,19 @@ class Accentor:
         return res
 
     def check_accented_wordform(self, checked: str) -> bool:
+        """[summary]
+
+        Args:
+            checked (str): [description]
+
+        Returns:
+            bool: [description]
+        """
+
         if len(checked.strip()) == 0:
             return False
         res = len(self.__all_russian_letters | {'-', '+'}) \
-              == len((self.__all_russian_letters | {'-', '+'}) | set(checked.lower()))
+            == len((self.__all_russian_letters | {'-', '+'}) | set(checked.lower()))
         if not res:
             return False
         if '-' in checked:
@@ -341,6 +468,15 @@ class Accentor:
         return res
 
     def check_morphotag(self, morphotag: str) -> bool:
+        """[summary]
+
+        Args:
+            morphotag (str): [description]
+
+        Returns:
+            bool: [description]
+        """
+
         if len(morphotag.strip()) == 0:
             return False
         if morphotag.isdigit():
@@ -380,6 +516,16 @@ class Accentor:
         return ok
 
     def calculate_morpho_similarity(self, morphotags_1: str, morphotags_2: str) -> float:
+        """Calculate similarity between `morphotags_1` and `morphotags_2`
+
+        Args:
+            morphotags_1 (str): [description]
+            morphotags_2 (str): [description]
+
+        Returns:
+            float: [description]
+        """
+
         if morphotags_1.isdigit() or morphotags_2.isdigit():
             return 0.0
         prepared_morpotags_1 = set(filter(
@@ -395,6 +541,15 @@ class Accentor:
         return len(prepared_morpotags_1 & prepared_morpotags_2) / len(prepared_morpotags_1 | prepared_morpotags_2)
 
     def prepare_morphotag(self, source_morphotag: str) -> str:
+        """[summary]
+
+        Args:
+            source_morphotag (str): [description]
+
+        Returns:
+            str: [description]
+        """
+
         ind1 = source_morphotag.find('(')
         ind2 = source_morphotag.find(')')
         if ind1 < 0:
@@ -409,13 +564,40 @@ class Accentor:
                 res = source_morphotag[:ind1].strip()
         return res
 
-    def get_new_dics(self):
+    def get_new_dics(self) -> (dict, list):
+        """Get new collected from wiktionary words
+
+        Args:
+            self ([type]): [description]
+            list ([type]): [description]
+
+        Returns: a tuple
+            dict: New homonyms
+            list: A sorted list of accented words
+        """
+
         return self.__new_homonyms, sorted(list(self.__new_simple_words))
 
-    def get_bad_words(self):
+    def get_bad_words(self) -> list:
+        """Get collected words with undefined accent: too many variants or unknown
+
+        Returns:
+            list: collected words
+        """
+
         return self.__bad_words
 
     def __generate_phrases_with_jo(self, old_phrase, new_phrase):
+        """[summary]
+
+        Args:
+            old_phrase ([type]): [description]
+            new_phrase ([type]): [description]
+
+        Yields:
+            [type]: [description]
+        """
+
         if len(old_phrase) == 0:
             yield new_phrase
         else:
@@ -426,7 +608,20 @@ class Accentor:
                 found_pos = old_phrase[0].find('е', found_pos + 1)
             yield from self.__generate_phrases_with_jo(old_phrase[1:], new_phrase + [old_phrase[0]])
 
-    def __do_accents(self, words_list: list, morphotags_list: list=None) -> list:
+    def __do_accents(self, words_list: list, morphotags_list: list = None) -> list:
+        """[summary]
+
+        Args:
+            words_list (list): [description]
+            morphotags_list (list, optional): [description]. Defaults to None.
+
+        Raises:
+            ValueError: [description]
+
+        Returns:
+            list of lists: [description]
+        """
+
         n = len(words_list)
         if morphotags_list is not None:
             assert n == len(morphotags_list), 'Morphotags do not correspond to words!'
@@ -485,13 +680,13 @@ class Accentor:
                             accented_wordforms_many.append([self.__homonyms[cur_word][morpho_variants[best_ind]]])
                         else:
                             root_text = self.load_wiki_page(cur_word)
-                            if root_text != None:
+                            if root_text is not None:
                                 #print('am I even here?')
                                 cur_accented_wordforms = sorted(self.get_correct_omograph_wiki(root_text, cur_word, morphotags_list[0]))
                                 if len(cur_accented_wordforms) == 1:
                                     accented_wordforms += [cur_accented_wordforms[0]]
                                     accented_wordforms_many.append([cur_accented_wordforms[0]])
-                                    self.__new_homonyms[cur_word] = {morphotags_list[0] : cur_accented_wordforms[0]}
+                                    self.__new_homonyms[cur_word] = {morphotags_list[0]: cur_accented_wordforms[0]}
                                 elif len(cur_accented_wordforms) > 1:
                                     accented_wordforms += [cur_word]
                                     accented_wordforms_many.append([cur_accented_wordforms])
@@ -502,12 +697,16 @@ class Accentor:
                                     warn = 'many'
                             else:
                                 accented_wordforms += [cur_word]
-                                accented_wordforms_many.append(sorted([self.__homonyms[cur_word][it] for it in self.__homonyms[cur_word]]))
+                                accented_wordforms_many.append(
+                                    sorted([self.__homonyms[cur_word][it] \
+                                        for it in self.__homonyms[cur_word]]))
                                 warn = 'many'
                 else:
-                    self.logger.debug(f'The word `{cur_word}` was not found in any of the dictionaries\nTrying to parse wictionary page...')
+                    self.logger.debug(f"""The word `{cur_word}` was not found \
+                                      in any of the dictionaries\n
+                                      Trying to parse wictionary page...""")
                     root_text = self.load_wiki_page(cur_word)
-                    if root_text != None:
+                    if root_text is not None:
                         cur_accented_wordforms = sorted(self.get_simple_form_wiki(root_text, cur_word))
                         if len(cur_accented_wordforms) == 1:
                             accented_wordforms += [cur_accented_wordforms[0]]
@@ -518,14 +717,17 @@ class Accentor:
                             accented_wordforms_many.append([cur_word])
                             warn = 'no'
                         else:
-                            cur_accented_wordforms = sorted(self.get_correct_omograph_wiki(root_text, cur_word, morphotags_list[0]))
+                            cur_accented_wordforms = \
+                            sorted(self.get_correct_omograph_wiki(root_text, cur_word, morphotags_list[0]))
                             if len(cur_accented_wordforms) == 1:
                                 accented_wordforms += [cur_accented_wordforms[0]]
                                 accented_wordforms_many.append([cur_accented_wordforms[0]])
-                                self.__new_homonyms[cur_word] = {morphotags_list[0] : cur_accented_wordforms[0]}
+                                self.__new_homonyms[cur_word] = {morphotags_list[0]: cur_accented_wordforms[0]}
                             else:
                                 accented_wordforms += [cur_word]
-                                accented_wordforms_many.append(sorted([self.__homonyms[cur_word][it] for it in self.__homonyms[cur_word]]))
+                                accented_wordforms_many.append(
+                                    sorted([self.__homonyms[cur_word][it] \
+                                            for it in self.__homonyms[cur_word]]))
                                 warn = 'many'
 
                     else:
@@ -535,8 +737,7 @@ class Accentor:
                 if i == 0:
                     if (accented_wordforms[0].find('+') != -1) or (len(separate_tokens) == 2):
                         break
-                    else:
-                        accented_wordforms = []
+                    accented_wordforms = []
         if (len(accented_wordforms) != 1) or (len(accented_wordforms_many) != 1):
             accented_wordforms = ['-'.join(accented_wordforms)]
             new_accented_wordforms_many = []
@@ -546,6 +747,7 @@ class Accentor:
         else:
             accented_wordforms = [accented_wordforms[0]]
             accented_wordforms_many = accented_wordforms_many[0]
+
         if cur_token in accented_wordforms:
             accented_wordforms = [accented_wordforms[accented_wordforms.index(cur_token)]]
             if warn != '':
@@ -557,6 +759,7 @@ class Accentor:
                     raise ValueError(err_msg)
                 self.__bad_words.append(cur_token)
                 warnings.warn(err_msg)
+
         accented_phrases = []
         if n > 1:
             if self.mode == 'one':
