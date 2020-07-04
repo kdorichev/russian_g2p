@@ -1,13 +1,18 @@
+#!/usr/bin/python3
+"""Prepare accents.json dictionary.
+
+"""
+
+import sys
 import codecs
 import json
-import os
-import sys
+from pathlib import Path
 
 
 def main():
     if sys.argv.__len__() > 1:
-        file_name = os.path.normpath(sys.argv[1])
-        assert os.path.isfile(file_name), 'File `{0}` does not exist!'.format(file_name)
+        file_name = Path(sys.argv[1])
+        assert file_name.exists(), 'File `{0}` does not exist!'.format(file_name)
         with codecs.open(file_name, mode='r', encoding='utf-8', errors='ignore') as fp:
             data = json.load(fp)
         accented_wordforms = sorted(list(set(data[1])))

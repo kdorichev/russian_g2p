@@ -47,10 +47,8 @@ class Accentor:
         self.logger = logging.getLogger()
         self.logger.debug('Setting up the Accentor...')
         self.mode = mode
-        self.__all_russian_letters = {'а', 'б', 'в', 'г', 'д', 'е', 'ё', 'ж', 'з', 'и', 'й', 'к', 
-                                      'л', 'м', 'н', 'о', 'п', 'р', 'с', 'т', 'у', 'ф', 'х', 'ц', 
-                                      'ч', 'ш', 'щ', 'ъ', 'ы', 'ь', 'э', 'ю', 'я'}
-        self.__russian_vowels = {'а', 'о', 'у', 'э', 'ы', 'и', 'я', 'ё', 'ю', 'е'}
+        self.__rus_letters = set('а б в г д е ё ж з и й к л м н о п р с т у ф х ц ч ш щ ъ ы ь э ю я'.split())
+        self.__rus_vowels = set('а о у э ы и я ё ю е'.split())
         self.exception_for_unknown = exception_for_unknown
         self.use_wiki = use_wiki
         self.__homonyms, self.__new_homonyms = {}, {}
@@ -120,8 +118,8 @@ class Accentor:
             del self.__homonyms
         if self.__simple_words_dawg is not None:
             del self.__simple_words_dawg
-        del self.__all_russian_letters
-        del self.__russian_vowels
+        del self.__rus_letters
+        del self.__rus_vowels
         del self.__re_for_morphosplit
         del self.__re_for_morphotag
         del self.__new_homonyms
@@ -431,8 +429,8 @@ class Accentor:
 
         if len(checked.strip()) == 0:
             return False
-        res = len(self.__all_russian_letters | {'-'}) \
-            == len((self.__all_russian_letters | {'-'}) | set(checked.lower()))
+        res = len(self.__rus_letters | {'-'}) \
+            == len((self.__rus_letters | {'-'}) | set(checked.lower()))
         if not res:
             return False
         if '-' not in checked:
@@ -455,8 +453,8 @@ class Accentor:
 
         if len(checked.strip()) == 0:
             return False
-        res = len(self.__all_russian_letters | {'-', '+'}) \
-            == len((self.__all_russian_letters | {'-', '+'}) | set(checked.lower()))
+        res = len(self.__rus_letters | {'-', '+'}) \
+            == len((self.__rus_letters | {'-', '+'}) | set(checked.lower()))
         if not res:
             return False
         if '-' in checked:
@@ -644,7 +642,7 @@ class Accentor:
             for i, cur_word in enumerate(separate_tokens):
                 vowels_counter = 0
                 for cur in cur_word:
-                    if cur in self.__russian_vowels:
+                    if cur in self.__rus_vowels:
                         vowels_counter += 1
                 if (cur_word in self.__function_words) or (vowels_counter == 0) or (('-' + cur_word) in self.__function_words) or ((cur_word + '-') in self.__function_words):
                     self.logger.debug(f'The word `{cur_word}` is in the list of function words')
@@ -652,7 +650,7 @@ class Accentor:
                     accented_wordforms_many.append([cur_word])
                 elif vowels_counter == 1:
                     self.logger.debug(f'The word `{cur_word}` has one vowel: accented automatically')
-                    cur_vowel = list(set(cur_word) & self.__russian_vowels)[0]
+                    cur_vowel = list(set(cur_word) & self.__rus_vowels)[0]
                     pos = cur_word.find(cur_vowel)
                     try:
                         accented_wordforms += [cur_word[:(pos+1)] + '+' + cur_word[(pos+1):]]
@@ -686,7 +684,6 @@ class Accentor:
                         else:
                             root_text = self.load_wiki_page(cur_word)
                             if root_text is not None:
-                                #print('am I even here?')
                                 cur_accented_wordforms = sorted(self.get_correct_omograph_wiki(root_text, cur_word, morphotags_list[0]))
                                 if len(cur_accented_wordforms) == 1:
                                     accented_wordforms += [cur_accented_wordforms[0]]
