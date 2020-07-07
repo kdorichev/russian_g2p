@@ -624,7 +624,8 @@ class Accentor:
         Returns:
             list of lists: [description]
         """
-
+        self.logger.debug(f'Words_list: {words_list}')
+        self.logger.debug(f'Morphotags_list: {morphotags_list}')
         n = len(words_list)
         if morphotags_list is not None:
             assert n == len(morphotags_list), 'Morphotags do not correspond to words!'
@@ -673,6 +674,7 @@ class Accentor:
                         best_ind = -1
                         best_similarity = 0.0
                         morpho_variants = list(self.__homonyms[cur_word].keys())
+                        self.logger.debug(f'Morpho_variants: `{morpho_variants}`')
                         for ind in range(len(morpho_variants)):
                             similarity = self.calculate_morpho_similarity(morpho_variants[ind], morphotags_list[0])
                             if similarity > best_similarity:

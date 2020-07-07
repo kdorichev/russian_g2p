@@ -93,3 +93,6 @@ class Transcription:
         if (part_counter < n_data_parts) and self.verbose:
             print('100% of texts have been processed...')
         return total_result
+    
+    def bad_words(self):
+        return sorted(list(set(self.__accentor.get_bad_words())))
