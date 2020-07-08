@@ -47,8 +47,8 @@ class Accentor:
         self.logger = logging.getLogger()
         self.logger.debug('Setting up the Accentor...')
         self.mode = mode
-        self.__rus_letters = set('а б в г д е ё ж з и й к л м н о п р с т у ф х ц ч ш щ ъ ы ь э ю я'.split())
-        self.__rus_vowels = set('а о у э ы и я ё ю е'.split())
+        self.__rus_letters = set('абвгдеёжзийклмнопрстуфхцчшщъыьэюя')
+        self.__rus_vowels = set('аоуэыияёюе')
         self.exception_for_unknown = exception_for_unknown
         self.use_wiki = use_wiki
         self.__homonyms, self.__new_homonyms = {}, {}
