@@ -13,8 +13,8 @@ import pymorphy2
 from russian_tagsets import converters
 
 
-rus_letters = set('а б в г д е ё ж з и й к л м н о п р с т у ф х ц ч ш щ ъ ы ь э ю я'.split())
-rus_vowels = set('а о у э ы и я ё ю е'.split())
+rus_letters = set('абвгдеёжзийклмнопрстуфхцчшщъыьэюя')
+rus_vowels = set('аоуэыияёюе')
 
 def remove_accent(word: str) -> str:
     """Remove accent characters from the `word`."""
